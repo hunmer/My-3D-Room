@@ -18,16 +18,45 @@
 
       <!-- 咖啡蒸汽 -->
       <CoffeeSteam :scene="scene" />
+
+      <!-- 椅子 -->
+      <TopChair :scene="scene" />
+
+      <!-- 电脑屏幕 -->
+      <Screen :scene="scene" />
+
+      <!-- Elgato 灯光 -->
+      <ElgatoLight
+        :scene="scene"
+        :color="elgatoLightColor"
+        :intensity="elgatoLightIntensity"
+      />
+
+      <!-- Loupedeck 按钮 -->
+      <LoupedeckButtons :scene="scene" />
     </template>
+
+    <!-- GUI 调试面板 -->
+    <DebugGUI
+      v-if="debugEnabled && !isLoading"
+      v-model:sun-mode="sunMode"
+      v-model:elgato-light-color="elgatoLightColor"
+      v-model:elgato-light-intensity="elgatoLightIntensity"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useExperience } from '@/composables/useExperience'
 import Baked from './Baked.vue'
 import GoogleLeds from './GoogleLeds.vue'
 import CoffeeSteam from './CoffeeSteam.vue'
+import TopChair from './TopChair.vue'
+import Screen from './Screen.vue'
+import ElgatoLight from './ElgatoLight.vue'
+import LoupedeckButtons from './LoupedeckButtons.vue'
+import DebugGUI from './DebugGUI.vue'
 
 // Refs
 const containerRef = ref<HTMLElement | null>(null)
@@ -45,8 +74,13 @@ const {
   destroy
 } = useExperience()
 
-// 日夜模式
+// 调试模式
+const debugEnabled = ref(window.innerWidth > 420)
+
+// 场景设置
 const sunMode = ref<'day' | 'night' | 'neutral'>('day')
+const elgatoLightColor = ref('#ffeedd')
+const elgatoLightIntensity = ref(1)
 
 // 生命周期
 onMounted(async () => {

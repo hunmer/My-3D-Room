@@ -42,6 +42,10 @@ const assets: AssetGroup[] = [
       { name: 'bakedNeutralTexture', source: '/assets/bakedNeutral.jpg', type: 'texture' },
       { name: 'lightMapTexture', source: '/assets/lightMap.jpg', type: 'texture' },
       { name: 'roomModel', source: '/assets/roomModel.glb', type: 'model' },
+
+      // 视频资源
+      { name: 'pcScreenVideo', source: '/assets/videoStream.mp4', type: 'video' },
+      { name: 'macScreenVideo', source: '/assets/videoPortfolio.mp4', type: 'video' },
     ]
   }
 ]

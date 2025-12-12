@@ -4,6 +4,8 @@ declare module 'tweakpane' {
   export interface PaneConfig {
     title?: string
     width?: number
+    container?: HTMLElement
+    expanded?: boolean
   }
 
   export class Pane {
@@ -14,10 +16,12 @@ declare module 'tweakpane' {
     addFolder(config: any): FolderApi
     clear(): void
     dispose(): void
+    refresh(): void
   }
 
   export interface InputBindingApi extends BladeApi {
     on(event: string, callback: (ev: any) => void): void
+    refresh(): void
   }
 
   export interface ButtonApi extends BladeApi {
