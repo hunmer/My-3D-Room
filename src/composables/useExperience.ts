@@ -3,6 +3,8 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { Sizes } from '@/core/utils/Sizes'
 import { getResources } from '@/composables/useResources'
+import { getInteraction } from '@/composables/useInteraction'
+import { getTransformControls } from '@/composables/useTransformControls'
 import type { ExperienceConfig } from '@/types/three'
 
 /**
@@ -12,6 +14,12 @@ import type { ExperienceConfig } from '@/types/three'
 export function useExperience() {
   // 资源管理器
   const resources = getResources()
+
+  // 交互系统
+  const interaction = getInteraction()
+
+  // 变换控制器
+  const transformControls = getTransformControls()
 
   // Three.js 核心对象（使用 shallowRef 避免深度代理）
   const scene = shallowRef<THREE.Scene | null>(null)
@@ -83,6 +91,17 @@ export function useExperience() {
     controls.value.maxPolarAngle = Math.PI / 2 + 0.1
     controls.value.update()
 
+    // 初始化交互系统
+    interaction.init(camera.value, renderer.value.domElement)
+
+    // 初始化 TransformControls
+    transformControls.init(
+      camera.value,
+      renderer.value.domElement,
+      scene.value,
+      controls.value
+    )
+
     // 设置监听器
     setupEventListeners()
   }
@@ -152,6 +171,12 @@ export function useExperience() {
     // 清理监听器
     sizes.value.destroy()
 
+    // 清理交互系统
+    interaction.destroy()
+
+    // 清理 TransformControls
+    transformControls.destroy()
+
     // 清理控制器
     if (controls.value) {
       controls.value.dispose()
@@ -193,6 +218,8 @@ export function useExperience() {
     // 管理器
     sizes,
     resources,
+    interaction,
+    transformControls,
 
     // 状态
     config,

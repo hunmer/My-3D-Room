@@ -1,18 +1,19 @@
 import * as THREE from 'three'
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 import { EventEmitter } from './EventEmitter'
 
 export interface LoadedResource {
   name: string
-  type: 'texture' | 'model' | 'video'
-  data: THREE.Texture | GLTF | HTMLVideoElement
+  type: 'texture' | 'model' | 'video' | 'fbx'
+  data: THREE.Texture | GLTF | HTMLVideoElement | THREE.Group
 }
 
 export interface ResourceItem {
   name: string
   source: string
-  type: 'texture' | 'model' | 'video'
+  type: 'texture' | 'model' | 'video' | 'fbx'
 }
 
 export interface LoadProgress {
@@ -23,11 +24,12 @@ export interface LoadProgress {
 }
 
 /**
- * 资源加载器 - 支持 GLB 模型、纹理和视频
+ * 资源加载器 - 支持 GLB 模型、FBX 模型、纹理和视频
  */
 export class ResourceLoader {
   private gltfLoader: GLTFLoader
   private dracoLoader: DRACOLoader
+  private fbxLoader: FBXLoader
   private textureLoader: THREE.TextureLoader
   private eventEmitter: EventEmitter<LoadProgress>
 
@@ -41,6 +43,9 @@ export class ResourceLoader {
     // 初始化 GLTF 加载器
     this.gltfLoader = new GLTFLoader()
     this.gltfLoader.setDRACOLoader(this.dracoLoader)
+
+    // 初始化 FBX 加载器
+    this.fbxLoader = new FBXLoader()
 
     // 初始化纹理加载器
     this.textureLoader = new THREE.TextureLoader()
@@ -94,6 +99,26 @@ export class ResourceLoader {
   }
 
   /**
+   * 加载单个 FBX 模型
+   */
+  private loadFBX(item: ResourceItem): Promise<LoadedResource> {
+    return new Promise((resolve, reject) => {
+      this.fbxLoader.load(
+        item.source,
+        (group) => {
+          resolve({
+            name: item.name,
+            type: 'fbx',
+            data: group
+          })
+        },
+        undefined,
+        (error) => reject(error)
+      )
+    })
+  }
+
+  /**
    * 加载视频
    */
   private loadVideo(item: ResourceItem): Promise<LoadedResource> {
@@ -129,6 +154,8 @@ export class ResourceLoader {
         return this.loadTexture(item)
       case 'model':
         return this.loadModel(item)
+      case 'fbx':
+        return this.loadFBX(item)
       case 'video':
         return this.loadVideo(item)
       default:

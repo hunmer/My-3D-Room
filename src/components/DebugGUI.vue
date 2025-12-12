@@ -16,6 +16,12 @@ interface Props {
   deskStrength: number
   pcColor: string
   pcStrength: number
+  // 猫模型参数
+  catPositionX: number
+  catPositionY: number
+  catPositionZ: number
+  catTargetSize: number
+  catRotationY: number
 }
 
 const props = defineProps<Props>()
@@ -30,6 +36,12 @@ const emit = defineEmits<{
   'update:deskStrength': [value: number]
   'update:pcColor': [value: string]
   'update:pcStrength': [value: number]
+  // 猫模型事件
+  'update:catPositionX': [value: number]
+  'update:catPositionY': [value: number]
+  'update:catPositionZ': [value: number]
+  'update:catTargetSize': [value: number]
+  'update:catRotationY': [value: number]
 }>()
 
 // Refs
@@ -45,7 +57,13 @@ const settings = ref({
   deskColor: props.deskColor,
   deskStrength: props.deskStrength,
   pcColor: props.pcColor,
-  pcStrength: props.pcStrength
+  pcStrength: props.pcStrength,
+  // 猫模型
+  catPositionX: props.catPositionX,
+  catPositionY: props.catPositionY,
+  catPositionZ: props.catPositionZ,
+  catTargetSize: props.catTargetSize,
+  catRotationY: props.catRotationY
 })
 
 /**
@@ -60,10 +78,61 @@ const initGUI = () => {
     container: guiContainer.value
   })
 
+  // 猫模型文件夹（放在最前面方便调试）
+  const catFolder = pane.value.addFolder({
+    title: '🐱 猫模型',
+    expanded: true
+  })
+
+  catFolder.addInput(settings.value, 'catTargetSize', {
+    label: '目标尺寸',
+    min: 0.01,
+    max: 5,
+    step: 0.01
+  }).on('change', (ev) => {
+    emit('update:catTargetSize', ev.value)
+  })
+
+  catFolder.addInput(settings.value, 'catPositionX', {
+    label: '位置 X',
+    min: -10,
+    max: 10,
+    step: 0.1
+  }).on('change', (ev) => {
+    emit('update:catPositionX', ev.value)
+  })
+
+  catFolder.addInput(settings.value, 'catPositionY', {
+    label: '位置 Y',
+    min: -5,
+    max: 5,
+    step: 0.1
+  }).on('change', (ev) => {
+    emit('update:catPositionY', ev.value)
+  })
+
+  catFolder.addInput(settings.value, 'catPositionZ', {
+    label: '位置 Z',
+    min: -10,
+    max: 10,
+    step: 0.1
+  }).on('change', (ev) => {
+    emit('update:catPositionZ', ev.value)
+  })
+
+  catFolder.addInput(settings.value, 'catRotationY', {
+    label: '旋转 Y',
+    min: 0,
+    max: 360,
+    step: 1
+  }).on('change', (ev) => {
+    emit('update:catRotationY', ev.value)
+  })
+
   // 环境光文件夹
   const envFolder = pane.value.addFolder({
     title: '环境光',
-    expanded: true
+    expanded: false
   })
 
   envFolder.addInput(settings.value, 'nightMix', {
@@ -201,6 +270,12 @@ watch(() => props.deskColor, (v) => { settings.value.deskColor = v; pane.value?.
 watch(() => props.deskStrength, (v) => { settings.value.deskStrength = v; pane.value?.refresh() })
 watch(() => props.pcColor, (v) => { settings.value.pcColor = v; pane.value?.refresh() })
 watch(() => props.pcStrength, (v) => { settings.value.pcStrength = v; pane.value?.refresh() })
+// 猫模型
+watch(() => props.catPositionX, (v) => { settings.value.catPositionX = v; pane.value?.refresh() })
+watch(() => props.catPositionY, (v) => { settings.value.catPositionY = v; pane.value?.refresh() })
+watch(() => props.catPositionZ, (v) => { settings.value.catPositionZ = v; pane.value?.refresh() })
+watch(() => props.catTargetSize, (v) => { settings.value.catTargetSize = v; pane.value?.refresh() })
+watch(() => props.catRotationY, (v) => { settings.value.catRotationY = v; pane.value?.refresh() })
 
 // 生命周期
 onMounted(() => {

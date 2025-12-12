@@ -6,7 +6,7 @@
 export interface AssetItem {
   name: string
   source: string
-  type: 'texture' | 'model' | 'video'
+  type: 'texture' | 'model' | 'video' | 'fbx'
 }
 
 export interface AssetGroup {
@@ -46,6 +46,11 @@ const assets: AssetGroup[] = [
       // 视频资源
       { name: 'pcScreenVideo', source: '/assets/videoStream.mp4', type: 'video' },
       { name: 'macScreenVideo', source: '/assets/videoPortfolio.mp4', type: 'video' },
+
+      // 猫模型
+      { name: 'catModel', source: '/assets/catModel.fbx', type: 'fbx' },
+      { name: 'catTexture', source: '/assets/catTexture.png', type: 'texture' },
+      { name: 'catEyeTexture', source: '/assets/catEyeTexture.png', type: 'texture' },
     ]
   }
 ]

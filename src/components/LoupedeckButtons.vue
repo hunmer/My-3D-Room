@@ -7,6 +7,7 @@ import { ref, shallowRef, onUnmounted, watch } from 'vue'
 import * as THREE from 'three'
 import { gsap } from '@/core/utils/Animation'
 import { getResources } from '@/composables/useResources'
+import { getInteraction } from '@/composables/useInteraction'
 
 // Props
 interface Props {
@@ -15,8 +16,16 @@ interface Props {
 
 const props = defineProps<Props>()
 
+// Emits
+const emit = defineEmits<{
+  click: [object: THREE.Object3D, event: MouseEvent]
+}>()
+
 // 资源管理器
 const resources = getResources()
+
+// 交互系统
+const interaction = getInteraction()
 
 // Three.js 对象（使用 shallowRef 避免 Proxy 冲突）
 const buttonsGroup = shallowRef<THREE.Group | null>(null)
@@ -24,6 +33,9 @@ const buttonMaterials = shallowRef<THREE.MeshBasicMaterial[]>([])
 
 // 动画
 const animations = ref<any[]>([])
+
+// 取消注册函数
+const unregisterInteraction = ref<(() => void) | null>(null)
 
 // 按钮颜色
 const buttonColors = [
@@ -85,12 +97,28 @@ const initLoupedeckButtons = () => {
 
   // 添加到场景
   props.scene.add(buttonsGroup.value)
+
+  // 注册点击交互
+  unregisterInteraction.value = interaction.registerGroup(buttonsGroup.value, {
+    name: 'LoupedeckButtons',
+    bounceScale: 1.25,
+    bounceDuration: 0.1,
+    onClick: (object, event) => {
+      emit('click', object, event)
+    }
+  })
 }
 
 /**
  * 销毁
  */
 const destroy = () => {
+  // 取消注册交互
+  if (unregisterInteraction.value) {
+    unregisterInteraction.value()
+    unregisterInteraction.value = null
+  }
+
   // 停止动画
   animations.value.forEach(anim => anim?.kill())
   animations.value = []

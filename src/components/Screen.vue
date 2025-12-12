@@ -3,9 +3,10 @@
 </template>
 
 <script setup lang="ts">
-import { shallowRef, onUnmounted, watch } from 'vue'
+import { ref, shallowRef, onUnmounted, watch } from 'vue'
 import * as THREE from 'three'
 import { getResources } from '@/composables/useResources'
+import { getInteraction } from '@/composables/useInteraction'
 
 // Props
 interface Props {
@@ -14,8 +15,16 @@ interface Props {
 
 const props = defineProps<Props>()
 
+// Emits
+const emit = defineEmits<{
+  click: [screenType: 'pc' | 'mac', object: THREE.Object3D, event: MouseEvent]
+}>()
+
 // 资源管理器
 const resources = getResources()
+
+// 交互系统
+const interaction = getInteraction()
 
 // Three.js 对象（使用 shallowRef 避免 Proxy 冲突）
 const pcScreenMesh = shallowRef<THREE.Mesh | null>(null)
@@ -28,6 +37,10 @@ const macVideoElement = shallowRef<HTMLVideoElement | null>(null)
 // 视频纹理
 const pcVideoTexture = shallowRef<THREE.VideoTexture | null>(null)
 const macVideoTexture = shallowRef<THREE.VideoTexture | null>(null)
+
+// 取消注册函数
+const unregisterPcInteraction = ref<(() => void) | null>(null)
+const unregisterMacInteraction = ref<(() => void) | null>(null)
 
 /**
  * 创建视频播放器
@@ -72,6 +85,16 @@ const initScreen = () => {
   pcScreenMesh.value.material = pcMaterial
   props.scene.add(pcScreenMesh.value)
 
+  // 注册 PC 屏幕点击交互
+  unregisterPcInteraction.value = interaction.register(pcScreenMesh.value, {
+    name: 'PcScreen',
+    bounceScale: 1.05,
+    bounceDuration: 0.1,
+    onClick: (object, event) => {
+      emit('click', 'pc', object, event)
+    }
+  })
+
   // 创建 Mac 屏幕
   macVideoElement.value = createVideoPlayer('/assets/videoStream.mp4')
   macVideoTexture.value = new THREE.VideoTexture(macVideoElement.value)
@@ -85,12 +108,32 @@ const initScreen = () => {
   macScreenMesh.value = macScreenGltf.scene.children[0] as THREE.Mesh
   macScreenMesh.value.material = macMaterial
   props.scene.add(macScreenMesh.value)
+
+  // 注册 Mac 屏幕点击交互
+  unregisterMacInteraction.value = interaction.register(macScreenMesh.value, {
+    name: 'MacScreen',
+    bounceScale: 1.05,
+    bounceDuration: 0.1,
+    onClick: (object, event) => {
+      emit('click', 'mac', object, event)
+    }
+  })
 }
 
 /**
  * 销毁
  */
 const destroy = () => {
+  // 取消注册交互
+  if (unregisterPcInteraction.value) {
+    unregisterPcInteraction.value()
+    unregisterPcInteraction.value = null
+  }
+  if (unregisterMacInteraction.value) {
+    unregisterMacInteraction.value()
+    unregisterMacInteraction.value = null
+  }
+
   // 停止视频
   if (pcVideoElement.value) {
     pcVideoElement.value.pause()

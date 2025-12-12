@@ -6,6 +6,7 @@
 import { ref, shallowRef, onUnmounted, watch } from 'vue'
 import * as THREE from 'three'
 import { getResources } from '@/composables/useResources'
+import { getInteraction } from '@/composables/useInteraction'
 
 // Props
 interface Props {
@@ -15,8 +16,16 @@ interface Props {
 
 const props = defineProps<Props>()
 
+// Emits
+const emit = defineEmits<{
+  click: [object: THREE.Object3D, event: MouseEvent]
+}>()
+
 // 资源管理器
 const resources = getResources()
+
+// 交互系统
+const interaction = getInteraction()
 
 // Three.js 对象（使用 shallowRef 避免 Proxy 冲突）
 const chairModel = shallowRef<THREE.Object3D | null>(null)
@@ -24,6 +33,9 @@ const chairModel = shallowRef<THREE.Object3D | null>(null)
 // 动画
 const animationFrame = ref<number | null>(null)
 const startTime = ref(Date.now())
+
+// 取消注册函数
+const unregisterInteraction = ref<(() => void) | null>(null)
 
 /**
  * 初始化椅子
@@ -52,6 +64,16 @@ const initTopChair = () => {
   // 添加到场景
   props.scene.add(chairModel.value)
 
+  // 注册点击交互
+  unregisterInteraction.value = interaction.registerGroup(chairModel.value, {
+    name: 'TopChair',
+    bounceScale: 1.1,
+    bounceDuration: 0.15,
+    onClick: (object, event) => {
+      emit('click', object, event)
+    }
+  })
+
   // 启动动画
   animate()
 }
@@ -73,6 +95,12 @@ const animate = () => {
  * 销毁
  */
 const destroy = () => {
+  // 取消注册交互
+  if (unregisterInteraction.value) {
+    unregisterInteraction.value()
+    unregisterInteraction.value = null
+  }
+
   // 停止动画
   if (animationFrame.value !== null) {
     cancelAnimationFrame(animationFrame.value)

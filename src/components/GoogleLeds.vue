@@ -7,6 +7,7 @@ import { ref, shallowRef, onUnmounted, watch } from 'vue'
 import * as THREE from 'three'
 import { gsap } from '@/core/utils/Animation'
 import { getResources } from '@/composables/useResources'
+import { getInteraction } from '@/composables/useInteraction'
 
 // Props
 interface Props {
@@ -18,8 +19,16 @@ const props = withDefaults(defineProps<Props>(), {
   time: 0
 })
 
+// Emits
+const emit = defineEmits<{
+  click: [object: THREE.Object3D, event: MouseEvent]
+}>()
+
 // 资源管理器
 const resources = getResources()
+
+// 交互系统
+const interaction = getInteraction()
 
 // Three.js 对象（使用 shallowRef 避免 Proxy 冲突）
 const ledGroup = shallowRef<THREE.Group | null>(null)
@@ -28,6 +37,9 @@ const ledMaterials = shallowRef<THREE.MeshBasicMaterial[]>([])
 
 // 动画实例
 const animations = ref<any[]>([])
+
+// 取消注册函数
+const unregisterInteraction = ref<(() => void) | null>(null)
 
 // LED 颜色配置（Google 品牌色）
 const colors = ['#4285f4', '#ea4335', '#fbbc04', '#34a853']
@@ -87,12 +99,28 @@ const initGoogleLeds = () => {
 
   // 添加到场景
   props.scene.add(ledGroup.value)
+
+  // 注册点击交互
+  unregisterInteraction.value = interaction.registerGroup(ledGroup.value, {
+    name: 'GoogleLeds',
+    bounceScale: 1.2,
+    bounceDuration: 0.12,
+    onClick: (object, event) => {
+      emit('click', object, event)
+    }
+  })
 }
 
 /**
  * 销毁
  */
 const destroy = () => {
+  // 取消注册交互
+  if (unregisterInteraction.value) {
+    unregisterInteraction.value()
+    unregisterInteraction.value = null
+  }
+
   // 停止动画
   animations.value.forEach(anim => anim?.kill())
   animations.value = []

@@ -112,6 +112,13 @@ const initBaked = () => {
   // 添加模型到组
   roomGroup.value.add(roomMesh)
 
+  // 计算并输出房间尺寸
+  const box = new THREE.Box3().setFromObject(roomMesh)
+  const size = new THREE.Vector3()
+  box.getSize(size)
+  console.log('🏠 Room Model Info:')
+  console.log('  Size:', { x: size.x.toFixed(2), y: size.y.toFixed(2), z: size.z.toFixed(2) })
+
   // 添加到场景
   props.scene.add(roomGroup.value)
 }

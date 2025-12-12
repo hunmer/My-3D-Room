@@ -60,6 +60,13 @@ export function useResources() {
   }
 
   /**
+   * 获取 FBX 模型资源
+   */
+  const getFBX = (name: string): THREE.Group | undefined => {
+    return loader.value.get<THREE.Group>(name)
+  }
+
+  /**
    * 获取视频资源
    */
   const getVideo = (name: string): HTMLVideoElement | undefined => {
@@ -91,6 +98,7 @@ export function useResources() {
     loadAll,
     getTexture,
     getModel,
+    getFBX,
     getVideo,
     hasResource,
     destroy,
