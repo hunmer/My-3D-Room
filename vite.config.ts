@@ -21,6 +21,8 @@ export default defineConfig({
       compress: false
     })
   ],
+  // 静态资源目录
+  publicDir: 'static',
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),

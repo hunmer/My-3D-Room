@@ -6,7 +6,7 @@
 export interface AssetItem {
   name: string
   source: string
-  type: 'texture' | 'model' | 'video' | 'audio'
+  type: 'texture' | 'model' | 'video'
 }
 
 export interface AssetGroup {

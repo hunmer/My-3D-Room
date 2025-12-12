@@ -3,45 +3,32 @@
 </template>
 
 <script setup lang="ts">
-import { ref, shallowRef, onMounted, onUnmounted, watch } from 'vue'
+import { ref, shallowRef, onUnmounted, watch } from 'vue'
 import * as THREE from 'three'
-import { gsap } from '@/core/utils/Animation'
-import { ShaderLoader } from '@/core/utils/ShaderLoader'
+import { getResources } from '@/composables/useResources'
+
+// 导入着色器
+import vertexShader from '@/shaders/coffeeSteam/vertex.glsl'
+import fragmentShader from '@/shaders/coffeeSteam/fragment.glsl'
 
 // Props
 interface Props {
   scene: THREE.Scene | null
-  debug?: boolean
-  position?: { x: number; y: number; z: number }
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  debug: false,
-  position: () => ({ x: 0, y: 0, z: 0 })
-})
+const props = defineProps<Props>()
 
-// Refs（Three.js 对象使用 shallowRef 避免 Proxy 冲突）
+// 资源管理器
+const resources = getResources()
+
+// Three.js 对象（使用 shallowRef 避免 Proxy 冲突）
 const steamGroup = shallowRef<THREE.Group | null>(null)
 const steamMesh = shallowRef<THREE.Mesh | null>(null)
 const shaderMaterial = shallowRef<THREE.ShaderMaterial | null>(null)
-const steamAnimation = ref<any>(null)
 
-// 时间相关
-const elapsedTime = ref(0)
+// 动画
 const animationFrame = ref<number | null>(null)
-
-/**
- * 创建蒸汽网格
- */
-const createSteamMesh = (): THREE.Mesh => {
-  // 创建一个简单的平面作为蒸汽的基础
-  const geometry = new THREE.PlaneGeometry(0.5, 1.5, 8, 8)
-
-  // 创建着色器材质
-  shaderMaterial.value = ShaderLoader.createCoffeeSteamMaterial()
-
-  return new THREE.Mesh(geometry, shaderMaterial.value)
-}
+const startTime = ref(Date.now())
 
 /**
  * 初始化咖啡蒸汽
@@ -49,125 +36,121 @@ const createSteamMesh = (): THREE.Mesh => {
 const initCoffeeSteam = () => {
   if (!props.scene) return
 
-  // 创建蒸汽组
+  // 获取模型
+  const steamGltf = resources.getModel('coffeeSteamModel')
+
+  if (!steamGltf) {
+    console.warn('Coffee steam model not loaded')
+    return
+  }
+
+  // 创建着色器材质
+  shaderMaterial.value = new THREE.ShaderMaterial({
+    vertexShader,
+    fragmentShader,
+    uniforms: {
+      uTime: { value: 0 },
+      uTimeFrequency: { value: 0.0004 },
+      uUvFrequency: { value: new THREE.Vector2(4, 5) },
+      uColor: { value: new THREE.Color('#ffffff') }
+    },
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  })
+
+  // 创建组
   steamGroup.value = new THREE.Group()
   steamGroup.value.name = 'CoffeeSteam'
-  steamGroup.value.position.set(props.position.x, props.position.y, props.position.z)
+
+  // 遍历模型找到蒸汽网格
+  steamGltf.scene.traverse((child) => {
+    if (child instanceof THREE.Mesh) {
+      child.material = shaderMaterial.value
+      steamMesh.value = child
+    }
+  })
+
+  // 添加模型到组
+  steamGroup.value.add(steamGltf.scene)
+
+  // 添加到场景
   props.scene.add(steamGroup.value)
 
-  // 创建蒸汽网格
-  steamMesh.value = createSteamMesh()
-  steamGroup.value.add(steamMesh.value)
-
-  // 使用 GSAP 动画化着色器 uniform
-  if (shaderMaterial.value) {
-    steamAnimation.value = gsap.to(shaderMaterial.value.uniforms.uTime, {
-      value: 1000,
-      duration: 5,
-      repeat: -1,
-      ease: 'none'
-    })
-
-    // 动画化颜色
-    const colors = ['#ffffff', '#f0f0f0', '#e0e0e0', '#ffffff']
-    gsap.to(shaderMaterial.value.uniforms.uColor.value, {
-      r: 0.9,
-      g: 0.9,
-      b: 0.9,
-      duration: 2,
-      repeat: -1,
-      yoyo: true,
-      ease: 'power2.inOut'
-    })
-
-    // 动画化频率
-    gsap.to(shaderMaterial.value.uniforms.uTimeFrequency, {
-      value: 0.002,
-      duration: 3,
-      repeat: -1,
-      yoyo: true,
-      ease: 'sine.inOut'
-    })
-  }
+  // 启动动画
+  animate()
 }
 
 /**
- * 更新蒸汽动画
+ * 动画循环
  */
-const update = (time: number) => {
-  elapsedTime.value = time
-
-  // GSAP 已经处理了动画，这里可以添加额外的逻辑
-  if (steamGroup.value && shaderMaterial.value) {
-    // 更新时间 uniform
-    shaderMaterial.value.uniforms.uTime.value = time * 0.001
+const animate = () => {
+  if (shaderMaterial.value) {
+    const elapsed = Date.now() - startTime.value
+    shaderMaterial.value.uniforms.uTime.value = elapsed
   }
+
+  animationFrame.value = requestAnimationFrame(animate)
 }
 
 /**
- * 销毁蒸汽
+ * 销毁
  */
 const destroy = () => {
-  // 清理 GSAP 动画
-  if (steamAnimation.value) {
-    steamAnimation.value.kill()
+  // 停止动画
+  if (animationFrame.value !== null) {
+    cancelAnimationFrame(animationFrame.value)
+    animationFrame.value = null
   }
 
-  if (steamGroup.value && props.scene) {
-    // 清理网格
-    if (steamMesh.value) {
-      steamMesh.value.geometry.dispose()
-      if (shaderMaterial.value) {
-        shaderMaterial.value.dispose()
-      }
-    }
+  // 清理材质
+  if (shaderMaterial.value) {
+    shaderMaterial.value.dispose()
+    shaderMaterial.value = null
+  }
 
-    // 从场景移除
+  // 移除场景
+  if (steamGroup.value && props.scene) {
     props.scene.remove(steamGroup.value)
+    steamGroup.value.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.geometry.dispose()
+      }
+    })
   }
 
   steamGroup.value = null
   steamMesh.value = null
-  shaderMaterial.value = null
 }
 
-// 监听场景变化
-watch(() => props.scene, (newScene) => {
-  if (newScene) {
-    destroy()
+// 监听资源加载完成
+watch(() => resources.isLoading.value, (loading) => {
+  if (!loading && props.scene) {
     initCoffeeSteam()
   }
 }, { immediate: true })
 
-// 监听位置变化
-watch(() => props.position, (newPosition) => {
-  if (steamGroup.value) {
-    steamGroup.value.position.set(newPosition.x, newPosition.y, newPosition.z)
-  }
-})
-
-// 生命周期
-onMounted(() => {
-  if (props.scene) {
+// 监听场景变化
+watch(() => props.scene, (newScene) => {
+  if (newScene && !resources.isLoading.value) {
+    destroy()
     initCoffeeSteam()
   }
 })
 
+// 生命周期
 onUnmounted(() => {
   destroy()
 })
 
-// 暴露方法给父组件
+// 暴露方法
 defineExpose({
-  update,
-  steamGroup,
-  steamMesh,
-  shaderMaterial
+  steamGroup
 })
 </script>
 
 <style scoped>
 .coffee-steam {
-  /* 这个组件没有 DOM 元素，Three.js 网格会直接添加到场景中 */
+  /* Three.js 网格直接添加到场景，无 DOM 元素 */
 }
 </style>

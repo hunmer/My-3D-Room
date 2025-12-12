@@ -1,8 +1,8 @@
 import { ref, shallowRef } from 'vue'
 import * as THREE from 'three'
-import { Time } from '@/core/utils/Time'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { Sizes } from '@/core/utils/Sizes'
-import { Loader } from '@/core/utils/Loader'
+import { getResources } from '@/composables/useResources'
 import type { ExperienceConfig } from '@/types/three'
 
 /**
@@ -10,17 +10,19 @@ import type { ExperienceConfig } from '@/types/three'
  * 注意：Three.js 对象使用 shallowRef 避免 Vue Proxy 与 Three.js 内部属性冲突
  */
 export function useExperience() {
+  // 资源管理器
+  const resources = getResources()
+
   // Three.js 核心对象（使用 shallowRef 避免深度代理）
   const scene = shallowRef<THREE.Scene | null>(null)
   const camera = shallowRef<THREE.PerspectiveCamera | null>(null)
   const renderer = shallowRef<THREE.WebGLRenderer | null>(null)
+  const controls = shallowRef<OrbitControls | null>(null)
   const clock = shallowRef<THREE.Clock>(new THREE.Clock())
   const animationFrameId = ref<number | null>(null)
 
   // 管理器（使用 shallowRef 避免深度代理）
-  const time = shallowRef<Time>(new Time())
   const sizes = shallowRef<Sizes>(new Sizes())
-  const loader = shallowRef<Loader>(new Loader())
 
   // 配置
   const config = ref<ExperienceConfig>({
@@ -30,9 +32,9 @@ export function useExperience() {
     debug: window.innerWidth > 420
   })
 
-  // 加载状态
-  const isLoading = ref(true)
-  const loadingProgress = ref(0)
+  // 加载状态（从 resources 获取）
+  const isLoading = resources.isLoading
+  const loadingProgress = resources.loadingProgress
 
   // 容器
   const container = ref<HTMLElement | null>(null)
@@ -47,14 +49,15 @@ export function useExperience() {
     scene.value = new THREE.Scene()
     scene.value.background = new THREE.Color('#010101')
 
-    // 创建相机
+    // 创建相机（调整为适合房间的视角）
     camera.value = new THREE.PerspectiveCamera(
-      20,
+      40,
       config.value.width / config.value.height,
       0.1,
       150
     )
-    camera.value.position.set(0, 1.5, 5)
+    // 设置相机位置（俯视房间的角度）
+    camera.value.position.set(5.5, 4, 5)
 
     // 创建渲染器
     renderer.value = new THREE.WebGLRenderer({
@@ -63,15 +66,22 @@ export function useExperience() {
     })
     renderer.value.setSize(config.value.width, config.value.height)
     renderer.value.setPixelRatio(config.value.pixelRatio)
-
-    // 设置调试模式
-    if (config.value.debug) {
-      renderer.value.shadowMap.enabled = true
-      renderer.value.shadowMap.type = THREE.PCFSoftShadowMap
-    }
+    renderer.value.outputColorSpace = THREE.SRGBColorSpace
+    renderer.value.toneMapping = THREE.NoToneMapping
 
     // 添加到容器
     containerElement.appendChild(renderer.value.domElement)
+
+    // 创建 OrbitControls
+    controls.value = new OrbitControls(camera.value, renderer.value.domElement)
+    controls.value.enableDamping = true
+    controls.value.dampingFactor = 0.05
+    controls.value.target.set(0, 1, 0)
+    controls.value.minDistance = 3
+    controls.value.maxDistance = 15
+    controls.value.minPolarAngle = 0
+    controls.value.maxPolarAngle = Math.PI / 2 + 0.1
+    controls.value.update()
 
     // 设置监听器
     setupEventListeners()
@@ -97,25 +107,15 @@ export function useExperience() {
         renderer.value.setPixelRatio(pixelRatio)
       }
     })
-
-    // 资源加载进度
-    loader.value.onProgress(({ loaded, total }) => {
-      loadingProgress.value = (loaded / total) * 100
-      if (loaded === total) {
-        isLoading.value = false
-      }
-    })
   }
 
   /**
    * 动画循环
    */
   const animate = () => {
-    clock.value.getDelta() // 获取delta time但不存储
-
-    // 更新相机
-    if (camera.value) {
-      camera.value.updateProjectionMatrix()
+    // 更新控制器
+    if (controls.value) {
+      controls.value.update()
     }
 
     // 渲染场景
@@ -152,6 +152,11 @@ export function useExperience() {
     // 清理监听器
     sizes.value.destroy()
 
+    // 清理控制器
+    if (controls.value) {
+      controls.value.dispose()
+    }
+
     // 清理渲染器
     if (renderer.value) {
       renderer.value.dispose()
@@ -160,26 +165,15 @@ export function useExperience() {
       }
     }
 
-    // 清理加载器
-    loader.value.destroy()
+    // 清理资源
+    resources.destroy()
   }
 
   /**
-   * 添加对象到场景
+   * 加载资源
    */
-  const addToScene = (object: THREE.Object3D) => {
-    if (scene.value) {
-      scene.value.add(object)
-    }
-  }
-
-  /**
-   * 从场景移除对象
-   */
-  const removeFromScene = (object: THREE.Object3D) => {
-    if (scene.value) {
-      scene.value.remove(object)
-    }
+  const loadResources = async () => {
+    await resources.loadAll()
   }
 
   /**
@@ -194,11 +188,11 @@ export function useExperience() {
     scene,
     camera,
     renderer,
+    controls,
 
     // 管理器
-    time,
     sizes,
-    loader,
+    resources,
 
     // 状态
     config,
@@ -207,10 +201,9 @@ export function useExperience() {
 
     // 方法
     setContainer,
+    loadResources,
     start,
     stop,
-    destroy,
-    addToScene,
-    removeFromScene
+    destroy
   }
 }
