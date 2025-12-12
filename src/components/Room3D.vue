@@ -17,6 +17,14 @@
       ref="googleLedsRef"
     />
 
+    <CoffeeSteam
+      v-if="scene"
+      :scene="scene"
+      :debug="debugEnabled"
+      :position="{ x: 1, y: 0, z: 0 }"
+      ref="coffeeSteamRef"
+    />
+
     <!-- 调试面板 -->
     <div v-if="debugEnabled" class="debug-panel">
       <h3>调试面板</h3>
@@ -43,6 +51,7 @@
 import { ref, onMounted, watch, onUnmounted } from 'vue'
 import { useExperience } from '@/composables/useExperience'
 import GoogleLeds from './GoogleLeds.vue'
+import CoffeeSteam from './CoffeeSteam.vue'
 
 // Refs
 const containerRef = ref<HTMLElement | null>(null)
@@ -64,6 +73,7 @@ const {
 
 // 3D 组件引用
 const googleLedsRef = ref<any>(null)
+const coffeeSteamRef = ref<any>(null)
 
 // 时间相关
 const elapsedTime = ref(0)
@@ -97,6 +107,10 @@ const animate = () => {
   // 更新 3D 组件
   if (googleLedsRef.value && googleLedsRef.value.update) {
     googleLedsRef.value.update(elapsedTime.value)
+  }
+
+  if (coffeeSteamRef.value && coffeeSteamRef.value.update) {
+    coffeeSteamRef.value.update(elapsedTime.value)
   }
 
   animationFrame.value = requestAnimationFrame(animate)

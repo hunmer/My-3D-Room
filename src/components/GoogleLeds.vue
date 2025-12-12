@@ -5,6 +5,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import * as THREE from 'three'
+import { gsap } from '@/core/utils/Animation'
+import { Pane } from 'tweakpane'
 
 // Props
 interface Props {
@@ -25,10 +27,14 @@ const ledItems = ref<Array<{
   color: string
   material: THREE.MeshBasicMaterial
   mesh: THREE.Mesh
+  animation?: any
 }>>([])
 
+// GSAP 动画实例
+const animationInstance = ref<any>(null)
+
 // 调试相关
-const debugFolder = ref<any>(null)
+const debugPane = ref<Pane | null>(null)
 const debugItems = ref<Array<{ color: string }>>([])
 
 // LED 颜色配置
@@ -55,6 +61,14 @@ const createLedMesh = (color: string): THREE.Mesh => {
  */
 const initGoogleLeds = () => {
   if (!props.scene) return
+
+  // 创建调试面板
+  if (props.debug) {
+    debugPane.value = new Pane({
+      title: 'Google Leds',
+      width: 300
+    })
+  }
 
   // 创建 LED 组
   ledGroup.value = new THREE.Group()
@@ -96,6 +110,18 @@ const initGoogleLeds = () => {
     ledItems.value.push(ledItem)
     debugItems.value.push({ color: color })
 
+    // 使用 GSAP 创建闪烁动画
+    const animation = gsap.to(material, {
+      opacity: () => 0.3 + Math.random() * 0.7,
+      duration: 1.5 + Math.random() * 0.5,
+      repeat: -1,
+      yoyo: true,
+      ease: 'power2.inOut',
+      delay: i * 0.2
+    })
+
+    ;(ledItem as any).animation = animation
+
     // 设置调试
     if (props.debug) {
       setupDebug(i, ledItem)
@@ -107,19 +133,50 @@ const initGoogleLeds = () => {
  * 设置调试功能
  */
 const setupDebug = (index: number, item: any) => {
-  // 注意：这里需要集成 Tweakpane
-  // 目前只是预留接口
-  console.log(`LED ${index} 调试功能已设置`)
+  if (!props.debug || !debugPane.value) return
+
+  // 创建文件夹
+  const folder = debugPane.value.addFolder({
+    title: `LED ${index}`,
+    expanded: false
+  })
+
+  // 添加颜色控制
+  folder.addBinding(item, 'color', {
+    label: 'Color',
+    view: 'color'
+  }).on('change', (ev: any) => {
+    item.material.color.set(ev.value)
+  })
+
+  // 添加不透明度控制
+  folder.addBinding(item.material, 'opacity', {
+    label: 'Opacity',
+    min: 0,
+    max: 1,
+    step: 0.01
+  })
+
+  // 添加动画速度控制
+  folder.addBinding(item.animation, 'timeScale', {
+    label: 'Speed',
+    min: 0,
+    max: 2,
+    step: 0.1
+  })
 }
 
 /**
- * 更新动画
+ * 更新动画（现在由 GSAP 管理，这里可以添加额外的更新逻辑）
  */
 const update = (elapsedTime: number) => {
-  // 使用正弦波创建闪烁效果
+  // GSAP 已经管理动画，这里可以添加额外的逻辑
+  // 例如：根据时间调整动画速度
   for (const item of ledItems.value) {
-    item.material.opacity =
-      Math.sin(elapsedTime * 0.002 - item.index * 0.5) * 0.5 + 0.5
+    if (item.animation) {
+      // 可以动态调整动画参数
+      // item.animation.timeScale(1 + Math.sin(elapsedTime * 0.001) * 0.5)
+    }
   }
 }
 
@@ -127,6 +184,19 @@ const update = (elapsedTime: number) => {
  * 销毁 LED
  */
 const destroy = () => {
+  // 清理 GSAP 动画
+  for (const item of ledItems.value) {
+    if (item.animation) {
+      item.animation.kill()
+    }
+  }
+
+  // 清理调试面板
+  if (debugPane.value) {
+    debugPane.value.dispose()
+    debugPane.value = null
+  }
+
   if (ledGroup.value && props.scene) {
     // 清理网格
     ledGroup.value.children.forEach((child) => {
