@@ -3,19 +3,36 @@
 </template>
 
 <script setup lang="ts">
-import { shallowRef, onMounted, onUnmounted, watch } from 'vue'
+import { shallowRef, onUnmounted, watch } from 'vue'
 import * as THREE from 'three'
-import { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { getResources } from '@/composables/useResources'
+
+// 导入着色器
+import vertexShader from '@/shaders/baked/vertex.glsl'
+import fragmentShader from '@/shaders/baked/fragment.glsl'
 
 // Props
 interface Props {
   scene: THREE.Scene | null
-  sunMode?: 'day' | 'night' | 'neutral'
+  nightMix?: number
+  neutralMix?: number
+  tvColor?: string
+  tvStrength?: number
+  deskColor?: string
+  deskStrength?: number
+  pcColor?: string
+  pcStrength?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  sunMode: 'day'
+  nightMix: 0,
+  neutralMix: 0,
+  tvColor: '#ff115e',
+  tvStrength: 1.47,
+  deskColor: '#ff6700',
+  deskStrength: 1.9,
+  pcColor: '#0082ff',
+  pcStrength: 1.4
 })
 
 // 资源管理器
@@ -23,20 +40,7 @@ const resources = getResources()
 
 // Three.js 对象（使用 shallowRef 避免 Proxy 冲突）
 const roomGroup = shallowRef<THREE.Group | null>(null)
-const bakedMaterial = shallowRef<THREE.MeshBasicMaterial | null>(null)
-
-// 纹理引用
-const textures = shallowRef<{
-  day: THREE.Texture | null
-  night: THREE.Texture | null
-  neutral: THREE.Texture | null
-  lightMap: THREE.Texture | null
-}>({
-  day: null,
-  night: null,
-  neutral: null,
-  lightMap: null
-})
+const bakedMaterial = shallowRef<THREE.ShaderMaterial | null>(null)
 
 /**
  * 初始化房间
@@ -52,91 +56,101 @@ const initBaked = () => {
   }
 
   // 获取纹理
-  textures.value = {
-    day: resources.getTexture('bakedDayTexture') || null,
-    night: resources.getTexture('bakedNightTexture') || null,
-    neutral: resources.getTexture('bakedNeutralTexture') || null,
-    lightMap: resources.getTexture('lightMapTexture') || null
-  }
+  const bakedDayTexture = resources.getTexture('bakedDayTexture')
+  const bakedNightTexture = resources.getTexture('bakedNightTexture')
+  const bakedNeutralTexture = resources.getTexture('bakedNeutralTexture')
+  const lightMapTexture = resources.getTexture('lightMapTexture')
 
-  // 获取当前纹理
-  const currentTexture = getCurrentTexture()
-  if (!currentTexture) {
-    console.warn('Baked texture not loaded')
+  if (!bakedDayTexture || !bakedNightTexture || !bakedNeutralTexture || !lightMapTexture) {
+    console.warn('Baked textures not loaded')
     return
   }
 
-  // 创建材质
-  bakedMaterial.value = new THREE.MeshBasicMaterial({
-    map: currentTexture
+  // 设置纹理属性
+  bakedDayTexture.flipY = false
+  bakedDayTexture.colorSpace = THREE.SRGBColorSpace
+  bakedNightTexture.flipY = false
+  bakedNightTexture.colorSpace = THREE.SRGBColorSpace
+  bakedNeutralTexture.flipY = false
+  bakedNeutralTexture.colorSpace = THREE.SRGBColorSpace
+  lightMapTexture.flipY = false
+
+  // 创建着色器材质
+  bakedMaterial.value = new THREE.ShaderMaterial({
+    vertexShader,
+    fragmentShader,
+    uniforms: {
+      uBakedDayTexture: { value: bakedDayTexture },
+      uBakedNightTexture: { value: bakedNightTexture },
+      uBakedNeutralTexture: { value: bakedNeutralTexture },
+      uLightMapTexture: { value: lightMapTexture },
+      uNightMix: { value: props.nightMix },
+      uNeutralMix: { value: props.neutralMix },
+      uLightTvColor: { value: new THREE.Color(props.tvColor) },
+      uLightTvStrength: { value: props.tvStrength },
+      uLightDeskColor: { value: new THREE.Color(props.deskColor) },
+      uLightDeskStrength: { value: props.deskStrength },
+      uLightPcColor: { value: new THREE.Color(props.pcColor) },
+      uLightPcStrength: { value: props.pcStrength }
+    }
   })
 
   // 创建房间组
   roomGroup.value = new THREE.Group()
   roomGroup.value.name = 'BakedRoom'
 
+  // 获取房间网格
+  const roomMesh = roomGltf.scene.children[0]
+
   // 遍历模型并应用材质
-  roomGltf.scene.traverse((child) => {
+  roomMesh.traverse((child) => {
     if (child instanceof THREE.Mesh) {
       child.material = bakedMaterial.value
     }
   })
 
   // 添加模型到组
-  roomGroup.value.add(roomGltf.scene)
+  roomGroup.value.add(roomMesh)
 
   // 添加到场景
   props.scene.add(roomGroup.value)
 }
 
 /**
- * 获取当前模式的纹理
+ * 更新 uniform
  */
-const getCurrentTexture = (): THREE.Texture | null => {
-  switch (props.sunMode) {
-    case 'day':
-      return textures.value.day
-    case 'night':
-      return textures.value.night
-    case 'neutral':
-      return textures.value.neutral
-    default:
-      return textures.value.day
-  }
-}
-
-/**
- * 更新纹理（切换日夜模式）
- */
-const updateTexture = () => {
+const updateUniforms = () => {
   if (!bakedMaterial.value) return
 
-  const currentTexture = getCurrentTexture()
-  if (currentTexture) {
-    bakedMaterial.value.map = currentTexture
-    bakedMaterial.value.needsUpdate = true
-  }
+  bakedMaterial.value.uniforms.uNightMix.value = props.nightMix
+  bakedMaterial.value.uniforms.uNeutralMix.value = props.neutralMix
+  bakedMaterial.value.uniforms.uLightTvColor.value.set(props.tvColor)
+  bakedMaterial.value.uniforms.uLightTvStrength.value = props.tvStrength
+  bakedMaterial.value.uniforms.uLightDeskColor.value.set(props.deskColor)
+  bakedMaterial.value.uniforms.uLightDeskStrength.value = props.deskStrength
+  bakedMaterial.value.uniforms.uLightPcColor.value.set(props.pcColor)
+  bakedMaterial.value.uniforms.uLightPcStrength.value = props.pcStrength
 }
 
 /**
  * 销毁
  */
 const destroy = () => {
+  if (bakedMaterial.value) {
+    bakedMaterial.value.dispose()
+    bakedMaterial.value = null
+  }
+
   if (roomGroup.value && props.scene) {
     props.scene.remove(roomGroup.value)
-
     roomGroup.value.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         child.geometry.dispose()
-        if (child.material instanceof THREE.Material) {
-          child.material.dispose()
-        }
       }
     })
   }
 
   roomGroup.value = null
-  bakedMaterial.value = null
 }
 
 // 监听资源加载完成
@@ -154,9 +168,18 @@ watch(() => props.scene, (newScene) => {
   }
 })
 
-// 监听日夜模式变化
-watch(() => props.sunMode, () => {
-  updateTexture()
+// 监听所有 props 变化
+watch(() => [
+  props.nightMix,
+  props.neutralMix,
+  props.tvColor,
+  props.tvStrength,
+  props.deskColor,
+  props.deskStrength,
+  props.pcColor,
+  props.pcStrength
+], () => {
+  updateUniforms()
 })
 
 // 生命周期
@@ -164,10 +187,10 @@ onUnmounted(() => {
   destroy()
 })
 
-// 暴露方法
+// 暴露材质供其他组件使用
 defineExpose({
   roomGroup,
-  updateTexture
+  bakedMaterial
 })
 </script>
 

@@ -5,12 +5,12 @@
 <script setup lang="ts">
 import { ref, shallowRef, onUnmounted, watch } from 'vue'
 import * as THREE from 'three'
-import { gsap } from '@/core/utils/Animation'
 import { getResources } from '@/composables/useResources'
 
 // Props
 interface Props {
   scene: THREE.Scene | null
+  bakedMaterial: THREE.ShaderMaterial | null
 }
 
 const props = defineProps<Props>()
@@ -19,17 +19,17 @@ const props = defineProps<Props>()
 const resources = getResources()
 
 // Three.js 对象（使用 shallowRef 避免 Proxy 冲突）
-const chairGroup = shallowRef<THREE.Group | null>(null)
 const chairModel = shallowRef<THREE.Object3D | null>(null)
 
 // 动画
-const rotationAnimation = ref<any>(null)
+const animationFrame = ref<number | null>(null)
+const startTime = ref(Date.now())
 
 /**
  * 初始化椅子
  */
 const initTopChair = () => {
-  if (!props.scene) return
+  if (!props.scene || !props.bakedMaterial) return
 
   // 获取模型
   const chairGltf = resources.getModel('topChairModel')
@@ -39,46 +39,34 @@ const initTopChair = () => {
     return
   }
 
-  // 创建组
-  chairGroup.value = new THREE.Group()
-  chairGroup.value.name = 'TopChair'
+  // 获取椅子模型（使用第一个子对象）
+  chairModel.value = chairGltf.scene.children[0]
 
-  // 获取椅子模型
-  chairModel.value = chairGltf.scene
-
-  // 遍历模型设置材质
-  chairGltf.scene.traverse((child) => {
+  // 应用房间材质
+  chairModel.value.traverse((child) => {
     if (child instanceof THREE.Mesh) {
-      // 使用原有材质或创建基础材质
-      if (!child.material) {
-        child.material = new THREE.MeshBasicMaterial({ color: 0x333333 })
-      }
+      child.material = props.bakedMaterial
     }
   })
 
-  // 添加模型到组
-  chairGroup.value.add(chairGltf.scene)
-
   // 添加到场景
-  props.scene.add(chairGroup.value)
+  props.scene.add(chairModel.value)
 
-  // 创建旋转动画
-  startRotationAnimation()
+  // 启动动画
+  animate()
 }
 
 /**
- * 启动旋转动画
+ * 摇摆动画
  */
-const startRotationAnimation = () => {
-  if (!chairModel.value) return
+const animate = () => {
+  if (chairModel.value) {
+    const elapsed = Date.now() - startTime.value
+    // 摇摆动画（不是完整旋转）
+    chairModel.value.rotation.y = Math.sin(elapsed * 0.0005) * 0.5
+  }
 
-  // 慢速旋转动画
-  rotationAnimation.value = gsap.to(chairModel.value.rotation, {
-    y: Math.PI * 2,
-    duration: 20,
-    repeat: -1,
-    ease: 'none'
-  })
+  animationFrame.value = requestAnimationFrame(animate)
 }
 
 /**
@@ -86,38 +74,32 @@ const startRotationAnimation = () => {
  */
 const destroy = () => {
   // 停止动画
-  if (rotationAnimation.value) {
-    rotationAnimation.value.kill()
-    rotationAnimation.value = null
+  if (animationFrame.value !== null) {
+    cancelAnimationFrame(animationFrame.value)
+    animationFrame.value = null
   }
 
-  // 移除场景
-  if (chairGroup.value && props.scene) {
-    props.scene.remove(chairGroup.value)
-    chairGroup.value.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        child.geometry.dispose()
-        if (child.material instanceof THREE.Material) {
-          child.material.dispose()
-        }
-      }
-    })
+  // 移除场景（不销毁材质，因为是共享的）
+  if (chairModel.value && props.scene) {
+    props.scene.remove(chairModel.value)
   }
 
-  chairGroup.value = null
   chairModel.value = null
 }
 
-// 监听资源加载完成
-watch(() => resources.isLoading.value, (loading) => {
-  if (!loading && props.scene) {
+// 监听资源加载完成和材质准备好
+watch([
+  () => resources.isLoading.value,
+  () => props.bakedMaterial
+], ([loading, material]) => {
+  if (!loading && material && props.scene) {
     initTopChair()
   }
 }, { immediate: true })
 
 // 监听场景变化
 watch(() => props.scene, (newScene) => {
-  if (newScene && !resources.isLoading.value) {
+  if (newScene && !resources.isLoading.value && props.bakedMaterial) {
     destroy()
     initTopChair()
   }
@@ -130,7 +112,7 @@ onUnmounted(() => {
 
 // 暴露方法
 defineExpose({
-  chairGroup
+  chairModel
 })
 </script>
 

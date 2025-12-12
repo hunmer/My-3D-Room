@@ -11,7 +11,18 @@
     <!-- 3D 组件（资源加载完成后渲染） -->
     <template v-if="!isLoading && scene">
       <!-- 主房间模型 -->
-      <Baked :scene="scene" :sun-mode="sunMode" />
+      <Baked
+        ref="bakedRef"
+        :scene="scene"
+        :night-mix="nightMix"
+        :neutral-mix="neutralMix"
+        :tv-color="tvColor"
+        :tv-strength="tvStrength"
+        :desk-color="deskColor"
+        :desk-strength="deskStrength"
+        :pc-color="pcColor"
+        :pc-strength="pcStrength"
+      />
 
       <!-- Google LEDs -->
       <GoogleLeds :scene="scene" />
@@ -19,8 +30,11 @@
       <!-- 咖啡蒸汽 -->
       <CoffeeSteam :scene="scene" />
 
-      <!-- 椅子 -->
-      <TopChair :scene="scene" />
+      <!-- 椅子（使用共享的 baked 材质） -->
+      <TopChair
+        :scene="scene"
+        :baked-material="bakedMaterial"
+      />
 
       <!-- 电脑屏幕 -->
       <Screen :scene="scene" />
@@ -39,15 +53,21 @@
     <!-- GUI 调试面板 -->
     <DebugGUI
       v-if="debugEnabled && !isLoading"
-      v-model:sun-mode="sunMode"
-      v-model:elgato-light-color="elgatoLightColor"
-      v-model:elgato-light-intensity="elgatoLightIntensity"
+      v-model:night-mix="nightMix"
+      v-model:neutral-mix="neutralMix"
+      v-model:tv-color="tvColor"
+      v-model:tv-strength="tvStrength"
+      v-model:desk-color="deskColor"
+      v-model:desk-strength="deskStrength"
+      v-model:pc-color="pcColor"
+      v-model:pc-strength="pcStrength"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import * as THREE from 'three'
 import { useExperience } from '@/composables/useExperience'
 import Baked from './Baked.vue'
 import GoogleLeds from './GoogleLeds.vue'
@@ -60,6 +80,7 @@ import DebugGUI from './DebugGUI.vue'
 
 // Refs
 const containerRef = ref<HTMLElement | null>(null)
+const bakedRef = ref<InstanceType<typeof Baked> | null>(null)
 
 // Experience
 const {
@@ -77,10 +98,30 @@ const {
 // 调试模式
 const debugEnabled = ref(window.innerWidth > 420)
 
-// 场景设置
-const sunMode = ref<'day' | 'night' | 'neutral'>('day')
+// 环境光参数
+const nightMix = ref(0)
+const neutralMix = ref(0)
+
+// 电视灯光参数
+const tvColor = ref('#ff115e')
+const tvStrength = ref(1.47)
+
+// 桌面灯光参数
+const deskColor = ref('#ff6700')
+const deskStrength = ref(1.9)
+
+// PC 灯光参数
+const pcColor = ref('#0082ff')
+const pcStrength = ref(1.4)
+
+// Elgato 灯光参数（保留旧参数以兼容 ElgatoLight 组件）
 const elgatoLightColor = ref('#ffeedd')
 const elgatoLightIntensity = ref(1)
+
+// 从 Baked 组件获取共享材质
+const bakedMaterial = computed<THREE.ShaderMaterial | null>(() => {
+  return bakedRef.value?.bakedMaterial ?? null
+})
 
 // 生命周期
 onMounted(async () => {

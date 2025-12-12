@@ -8,18 +8,28 @@ import { Pane } from 'tweakpane'
 
 // Props
 interface Props {
-  sunMode: 'day' | 'night' | 'neutral'
-  elgatoLightColor: string
-  elgatoLightIntensity: number
+  nightMix: number
+  neutralMix: number
+  tvColor: string
+  tvStrength: number
+  deskColor: string
+  deskStrength: number
+  pcColor: string
+  pcStrength: number
 }
 
 const props = defineProps<Props>()
 
 // Emits
 const emit = defineEmits<{
-  'update:sunMode': [value: 'day' | 'night' | 'neutral']
-  'update:elgatoLightColor': [value: string]
-  'update:elgatoLightIntensity': [value: number]
+  'update:nightMix': [value: number]
+  'update:neutralMix': [value: number]
+  'update:tvColor': [value: string]
+  'update:tvStrength': [value: number]
+  'update:deskColor': [value: string]
+  'update:deskStrength': [value: number]
+  'update:pcColor': [value: string]
+  'update:pcStrength': [value: number]
 }>()
 
 // Refs
@@ -28,11 +38,14 @@ const pane = shallowRef<Pane | null>(null)
 
 // 内部状态（用于 Tweakpane 绑定）
 const settings = ref({
-  sunMode: props.sunMode,
-  elgatoLight: {
-    color: props.elgatoLightColor,
-    intensity: props.elgatoLightIntensity
-  }
+  nightMix: props.nightMix,
+  neutralMix: props.neutralMix,
+  tvColor: props.tvColor,
+  tvStrength: props.tvStrength,
+  deskColor: props.deskColor,
+  deskStrength: props.deskStrength,
+  pcColor: props.pcColor,
+  pcStrength: props.pcStrength
 })
 
 /**
@@ -47,54 +60,124 @@ const initGUI = () => {
     container: guiContainer.value
   })
 
-  // 日夜模式选择
-  const sunModeOptions = {
-    '白天': 'day',
-    '夜晚': 'night',
-    '中性': 'neutral'
-  }
-
-  pane.value.addInput(settings.value, 'sunMode', {
-    label: '环境光',
-    options: sunModeOptions
-  }).on('change', (ev) => {
-    emit('update:sunMode', ev.value as 'day' | 'night' | 'neutral')
-  })
-
-  // Elgato 灯光文件夹
-  const elgatoFolder = pane.value.addFolder({
-    title: 'Elgato 灯光',
+  // 环境光文件夹
+  const envFolder = pane.value.addFolder({
+    title: '环境光',
     expanded: true
   })
 
-  elgatoFolder.addInput(settings.value.elgatoLight, 'color', {
-    label: '颜色',
-    view: 'color'
-  }).on('change', (ev) => {
-    emit('update:elgatoLightColor', ev.value)
-  })
-
-  elgatoFolder.addInput(settings.value.elgatoLight, 'intensity', {
-    label: '强度',
+  envFolder.addInput(settings.value, 'nightMix', {
+    label: '夜晚混合',
     min: 0,
     max: 1,
     step: 0.01
   }).on('change', (ev) => {
-    emit('update:elgatoLightIntensity', ev.value)
+    emit('update:nightMix', ev.value)
   })
 
-  // 添加重置按钮
+  envFolder.addInput(settings.value, 'neutralMix', {
+    label: '中性混合',
+    min: 0,
+    max: 1,
+    step: 0.01
+  }).on('change', (ev) => {
+    emit('update:neutralMix', ev.value)
+  })
+
+  // 电视灯光文件夹
+  const tvFolder = pane.value.addFolder({
+    title: '电视灯光',
+    expanded: false
+  })
+
+  tvFolder.addInput(settings.value, 'tvColor', {
+    label: '颜色',
+    view: 'color'
+  }).on('change', (ev) => {
+    emit('update:tvColor', ev.value)
+  })
+
+  tvFolder.addInput(settings.value, 'tvStrength', {
+    label: '强度',
+    min: 0,
+    max: 3,
+    step: 0.01
+  }).on('change', (ev) => {
+    emit('update:tvStrength', ev.value)
+  })
+
+  // 桌面灯光文件夹
+  const deskFolder = pane.value.addFolder({
+    title: '桌面灯光',
+    expanded: false
+  })
+
+  deskFolder.addInput(settings.value, 'deskColor', {
+    label: '颜色',
+    view: 'color'
+  }).on('change', (ev) => {
+    emit('update:deskColor', ev.value)
+  })
+
+  deskFolder.addInput(settings.value, 'deskStrength', {
+    label: '强度',
+    min: 0,
+    max: 3,
+    step: 0.01
+  }).on('change', (ev) => {
+    emit('update:deskStrength', ev.value)
+  })
+
+  // PC 灯光文件夹
+  const pcFolder = pane.value.addFolder({
+    title: 'PC 灯光',
+    expanded: false
+  })
+
+  pcFolder.addInput(settings.value, 'pcColor', {
+    label: '颜色',
+    view: 'color'
+  }).on('change', (ev) => {
+    emit('update:pcColor', ev.value)
+  })
+
+  pcFolder.addInput(settings.value, 'pcStrength', {
+    label: '强度',
+    min: 0,
+    max: 3,
+    step: 0.01
+  }).on('change', (ev) => {
+    emit('update:pcStrength', ev.value)
+  })
+
+  // 预设按钮
   pane.value.addButton({
-    title: '重置设置'
+    title: '白天模式'
   }).on('click', () => {
-    settings.value.sunMode = 'day'
-    settings.value.elgatoLight.color = '#ffeedd'
-    settings.value.elgatoLight.intensity = 1
+    settings.value.nightMix = 0
+    settings.value.neutralMix = 0
+    emit('update:nightMix', 0)
+    emit('update:neutralMix', 0)
+    pane.value?.refresh()
+  })
 
-    emit('update:sunMode', 'day')
-    emit('update:elgatoLightColor', '#ffeedd')
-    emit('update:elgatoLightIntensity', 1)
+  pane.value.addButton({
+    title: '夜晚模式'
+  }).on('click', () => {
+    settings.value.nightMix = 1
+    settings.value.neutralMix = 0
+    emit('update:nightMix', 1)
+    emit('update:neutralMix', 0)
+    pane.value?.refresh()
+  })
 
+  pane.value.addButton({
+    title: '中性模式'
+  }).on('click', () => {
+    settings.value.nightMix = 0
+    settings.value.neutralMix = 1
+    emit('update:nightMix', 0)
+    emit('update:neutralMix', 1)
     pane.value?.refresh()
   })
 }
@@ -110,20 +193,14 @@ const destroy = () => {
 }
 
 // 同步外部 props 变化到内部状态
-watch(() => props.sunMode, (newValue) => {
-  settings.value.sunMode = newValue
-  pane.value?.refresh()
-})
-
-watch(() => props.elgatoLightColor, (newValue) => {
-  settings.value.elgatoLight.color = newValue
-  pane.value?.refresh()
-})
-
-watch(() => props.elgatoLightIntensity, (newValue) => {
-  settings.value.elgatoLight.intensity = newValue
-  pane.value?.refresh()
-})
+watch(() => props.nightMix, (v) => { settings.value.nightMix = v; pane.value?.refresh() })
+watch(() => props.neutralMix, (v) => { settings.value.neutralMix = v; pane.value?.refresh() })
+watch(() => props.tvColor, (v) => { settings.value.tvColor = v; pane.value?.refresh() })
+watch(() => props.tvStrength, (v) => { settings.value.tvStrength = v; pane.value?.refresh() })
+watch(() => props.deskColor, (v) => { settings.value.deskColor = v; pane.value?.refresh() })
+watch(() => props.deskStrength, (v) => { settings.value.deskStrength = v; pane.value?.refresh() })
+watch(() => props.pcColor, (v) => { settings.value.pcColor = v; pane.value?.refresh() })
+watch(() => props.pcStrength, (v) => { settings.value.pcStrength = v; pane.value?.refresh() })
 
 // 生命周期
 onMounted(() => {

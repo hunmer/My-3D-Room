@@ -18,11 +18,30 @@ const props = defineProps<Props>()
 const resources = getResources()
 
 // Three.js 对象（使用 shallowRef 避免 Proxy 冲突）
-const screenGroup = shallowRef<THREE.Group | null>(null)
 const pcScreenMesh = shallowRef<THREE.Mesh | null>(null)
 const macScreenMesh = shallowRef<THREE.Mesh | null>(null)
+
+// 视频元素
+const pcVideoElement = shallowRef<HTMLVideoElement | null>(null)
+const macVideoElement = shallowRef<HTMLVideoElement | null>(null)
+
+// 视频纹理
 const pcVideoTexture = shallowRef<THREE.VideoTexture | null>(null)
 const macVideoTexture = shallowRef<THREE.VideoTexture | null>(null)
+
+/**
+ * 创建视频播放器
+ */
+const createVideoPlayer = (sourcePath: string): HTMLVideoElement => {
+  const video = document.createElement('video')
+  video.muted = true
+  video.loop = true
+  video.playsInline = true
+  video.autoplay = true
+  video.src = sourcePath
+  video.play()
+  return video
+}
 
 /**
  * 初始化屏幕
@@ -34,69 +53,56 @@ const initScreen = () => {
   const pcScreenGltf = resources.getModel('pcScreenModel')
   const macScreenGltf = resources.getModel('macScreenModel')
 
-  // 获取视频
-  const pcVideo = resources.getVideo('pcScreenVideo')
-  const macVideo = resources.getVideo('macScreenVideo')
-
   if (!pcScreenGltf || !macScreenGltf) {
     console.warn('Screen models not loaded')
     return
   }
 
-  // 创建组
-  screenGroup.value = new THREE.Group()
-  screenGroup.value.name = 'Screens'
+  // 创建 PC 屏幕
+  pcVideoElement.value = createVideoPlayer('/assets/videoPortfolio.mp4')
+  pcVideoTexture.value = new THREE.VideoTexture(pcVideoElement.value)
+  pcVideoTexture.value.colorSpace = THREE.SRGBColorSpace
 
-  // 创建 PC 屏幕视频纹理
-  if (pcVideo) {
-    pcVideoTexture.value = new THREE.VideoTexture(pcVideo)
-    pcVideoTexture.value.flipY = false
-    pcVideoTexture.value.colorSpace = THREE.SRGBColorSpace
-  }
-
-  // 创建 Mac 屏幕视频纹理
-  if (macVideo) {
-    macVideoTexture.value = new THREE.VideoTexture(macVideo)
-    macVideoTexture.value.flipY = false
-    macVideoTexture.value.colorSpace = THREE.SRGBColorSpace
-  }
-
-  // 处理 PC 屏幕
-  pcScreenGltf.scene.traverse((child) => {
-    if (child instanceof THREE.Mesh) {
-      pcScreenMesh.value = child
-      if (pcVideoTexture.value) {
-        child.material = new THREE.MeshBasicMaterial({
-          map: pcVideoTexture.value
-        })
-      }
-    }
+  const pcMaterial = new THREE.MeshBasicMaterial({
+    map: pcVideoTexture.value
   })
 
-  // 处理 Mac 屏幕
-  macScreenGltf.scene.traverse((child) => {
-    if (child instanceof THREE.Mesh) {
-      macScreenMesh.value = child
-      if (macVideoTexture.value) {
-        child.material = new THREE.MeshBasicMaterial({
-          map: macVideoTexture.value
-        })
-      }
-    }
+  // 获取 PC 屏幕网格
+  pcScreenMesh.value = pcScreenGltf.scene.children[0] as THREE.Mesh
+  pcScreenMesh.value.material = pcMaterial
+  props.scene.add(pcScreenMesh.value)
+
+  // 创建 Mac 屏幕
+  macVideoElement.value = createVideoPlayer('/assets/videoStream.mp4')
+  macVideoTexture.value = new THREE.VideoTexture(macVideoElement.value)
+  macVideoTexture.value.colorSpace = THREE.SRGBColorSpace
+
+  const macMaterial = new THREE.MeshBasicMaterial({
+    map: macVideoTexture.value
   })
 
-  // 添加模型到组
-  screenGroup.value.add(pcScreenGltf.scene)
-  screenGroup.value.add(macScreenGltf.scene)
-
-  // 添加到场景
-  props.scene.add(screenGroup.value)
+  // 获取 Mac 屏幕网格
+  macScreenMesh.value = macScreenGltf.scene.children[0] as THREE.Mesh
+  macScreenMesh.value.material = macMaterial
+  props.scene.add(macScreenMesh.value)
 }
 
 /**
  * 销毁
  */
 const destroy = () => {
+  // 停止视频
+  if (pcVideoElement.value) {
+    pcVideoElement.value.pause()
+    pcVideoElement.value.src = ''
+    pcVideoElement.value = null
+  }
+  if (macVideoElement.value) {
+    macVideoElement.value.pause()
+    macVideoElement.value.src = ''
+    macVideoElement.value = null
+  }
+
   // 清理视频纹理
   if (pcVideoTexture.value) {
     pcVideoTexture.value.dispose()
@@ -108,19 +114,19 @@ const destroy = () => {
   }
 
   // 移除场景
-  if (screenGroup.value && props.scene) {
-    props.scene.remove(screenGroup.value)
-    screenGroup.value.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        child.geometry.dispose()
-        if (child.material instanceof THREE.Material) {
-          child.material.dispose()
-        }
-      }
-    })
+  if (pcScreenMesh.value && props.scene) {
+    if (pcScreenMesh.value.material instanceof THREE.Material) {
+      pcScreenMesh.value.material.dispose()
+    }
+    props.scene.remove(pcScreenMesh.value)
+  }
+  if (macScreenMesh.value && props.scene) {
+    if (macScreenMesh.value.material instanceof THREE.Material) {
+      macScreenMesh.value.material.dispose()
+    }
+    props.scene.remove(macScreenMesh.value)
   }
 
-  screenGroup.value = null
   pcScreenMesh.value = null
   macScreenMesh.value = null
 }
@@ -147,7 +153,8 @@ onUnmounted(() => {
 
 // 暴露方法
 defineExpose({
-  screenGroup
+  pcScreenMesh,
+  macScreenMesh
 })
 </script>
 
