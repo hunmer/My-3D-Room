@@ -2,8 +2,10 @@
   "repository": "#",
   "license": "UNLICENSED",
   "scripts": {
-    "build": "webpack --config ./bundler/webpack.prod.js",
-    "dev": "webpack serve --config ./bundler/webpack.dev.js",
+    "build": "vite build",
+    "dev": "vite",
+    "preview": "vite preview",
+    "type-check": "vue-tsc --noEmit",
     "prod": "git switch prod; git merge main; git push; git switch main"
   },
   "dependencies": {
@@ -27,9 +29,19 @@
     "style-loader": "^3.0.0",
     "three": "^0.130.1",
     "tweakpane": "^3.0.5",
+    "vue": "^3.4.0",
     "webpack": "^5.42.1",
     "webpack-cli": "^4.7.2",
     "webpack-dev-server": "^3.11.2",
     "webpack-merge": "^5.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.1",
+    "@types/three": "^0.182.0",
+    "@vitejs/plugin-vue": "^6.0.3",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.7",
+    "vite-plugin-glsl": "^1.5.5",
+    "vue-tsc": "^3.1.8"
   }
 }
