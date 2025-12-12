@@ -3,7 +3,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, shallowRef, onMounted, onUnmounted, watch } from 'vue'
 import * as THREE from 'three'
 import { gsap } from '@/core/utils/Animation'
 import { Pane } from 'tweakpane'
@@ -20,8 +20,8 @@ const props = withDefaults(defineProps<Props>(), {
   debug: false
 })
 
-// Refs
-const ledGroup = ref<THREE.Group | null>(null)
+// Refs（Three.js 对象使用 shallowRef 避免 Proxy 冲突）
+const ledGroup = shallowRef<THREE.Group | null>(null)
 const ledItems = ref<Array<{
   index: number
   color: string
@@ -33,8 +33,8 @@ const ledItems = ref<Array<{
 // GSAP 动画实例
 const animationInstance = ref<any>(null)
 
-// 调试相关
-const debugPane = ref<Pane | null>(null)
+// 调试相关（Pane 也使用 shallowRef）
+const debugPane = shallowRef<Pane | null>(null)
 const debugItems = ref<Array<{ color: string }>>([])
 
 // LED 颜色配置
@@ -141,8 +141,8 @@ const setupDebug = (index: number, item: any) => {
     expanded: false
   })
 
-  // 添加颜色控制
-  folder.addBinding(item, 'color', {
+  // 添加颜色控制（Tweakpane v3 使用 addInput）
+  folder.addInput(item, 'color', {
     label: 'Color',
     view: 'color'
   }).on('change', (ev: any) => {
@@ -150,19 +150,24 @@ const setupDebug = (index: number, item: any) => {
   })
 
   // 添加不透明度控制
-  folder.addBinding(item.material, 'opacity', {
+  folder.addInput(item.material, 'opacity', {
     label: 'Opacity',
     min: 0,
     max: 1,
     step: 0.01
   })
 
-  // 添加动画速度控制
-  folder.addBinding(item.animation, 'timeScale', {
+  // 添加动画速度控制（GSAP timeScale 是方法，需要代理对象）
+  const speedProxy = { speed: 1 }
+  folder.addInput(speedProxy, 'speed', {
     label: 'Speed',
     min: 0,
     max: 2,
     step: 0.1
+  }).on('change', (ev: any) => {
+    if (item.animation) {
+      item.animation.timeScale(ev.value)
+    }
   })
 }
 

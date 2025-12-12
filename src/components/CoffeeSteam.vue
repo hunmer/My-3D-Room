@@ -3,7 +3,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, shallowRef, onMounted, onUnmounted, watch } from 'vue'
 import * as THREE from 'three'
 import { gsap } from '@/core/utils/Animation'
 import { ShaderLoader } from '@/core/utils/ShaderLoader'
@@ -20,10 +20,10 @@ const props = withDefaults(defineProps<Props>(), {
   position: () => ({ x: 0, y: 0, z: 0 })
 })
 
-// Refs
-const steamGroup = ref<THREE.Group | null>(null)
-const steamMesh = ref<THREE.Mesh | null>(null)
-const shaderMaterial = ref<THREE.ShaderMaterial | null>(null)
+// Refs（Three.js 对象使用 shallowRef 避免 Proxy 冲突）
+const steamGroup = shallowRef<THREE.Group | null>(null)
+const steamMesh = shallowRef<THREE.Mesh | null>(null)
+const shaderMaterial = shallowRef<THREE.ShaderMaterial | null>(null)
 const steamAnimation = ref<any>(null)
 
 // 时间相关
@@ -99,15 +99,8 @@ const update = (time: number) => {
 
   // GSAP 已经处理了动画，这里可以添加额外的逻辑
   if (steamGroup.value && shaderMaterial.value) {
-    // 可以根据时间调整蒸汽的强度
-    const intensity = 0.5 + Math.sin(time * 0.001) * 0.3
+    // 更新时间 uniform
     shaderMaterial.value.uniforms.uTime.value = time * 0.001
-
-    // 动态调整颜色强度
-    if (shaderMaterial.value.uniforms.uColor) {
-      const color = shaderMaterial.value.uniforms.uColor.value
-      color.multiplyScalar(intensity)
-    }
   }
 }
 

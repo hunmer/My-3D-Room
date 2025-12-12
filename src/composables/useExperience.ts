@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, shallowRef } from 'vue'
 import * as THREE from 'three'
 import { Time } from '@/core/utils/Time'
 import { Sizes } from '@/core/utils/Sizes'
@@ -7,19 +7,20 @@ import type { ExperienceConfig } from '@/types/three'
 
 /**
  * Three.js Experience 的 Vue Composable
+ * 注意：Three.js 对象使用 shallowRef 避免 Vue Proxy 与 Three.js 内部属性冲突
  */
 export function useExperience() {
-  // Three.js 核心对象
-  const scene = ref<THREE.Scene | null>(null)
-  const camera = ref<THREE.PerspectiveCamera | null>(null)
-  const renderer = ref<THREE.WebGLRenderer | null>(null)
-  const clock = ref<THREE.Clock>(new THREE.Clock())
+  // Three.js 核心对象（使用 shallowRef 避免深度代理）
+  const scene = shallowRef<THREE.Scene | null>(null)
+  const camera = shallowRef<THREE.PerspectiveCamera | null>(null)
+  const renderer = shallowRef<THREE.WebGLRenderer | null>(null)
+  const clock = shallowRef<THREE.Clock>(new THREE.Clock())
   const animationFrameId = ref<number | null>(null)
 
-  // 管理器
-  const time = ref<Time>(new Time())
-  const sizes = ref<Sizes>(new Sizes())
-  const loader = ref<Loader>(new Loader())
+  // 管理器（使用 shallowRef 避免深度代理）
+  const time = shallowRef<Time>(new Time())
+  const sizes = shallowRef<Sizes>(new Sizes())
+  const loader = shallowRef<Loader>(new Loader())
 
   // 配置
   const config = ref<ExperienceConfig>({

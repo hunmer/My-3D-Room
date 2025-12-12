@@ -9,14 +9,14 @@ declare module 'tweakpane' {
   export class Pane {
     constructor(config?: PaneConfig)
     element: HTMLElement | null
-    addBinding<T extends object, P extends keyof T>(obj: T, prop: P, config?: any): BindingApi
+    addInput<T extends object, P extends keyof T>(obj: T, prop: P, config?: any): InputBindingApi
     addButton(config: any): ButtonApi
     addFolder(config: any): FolderApi
     clear(): void
     dispose(): void
   }
 
-  export interface BindingApi extends BladeApi {
+  export interface InputBindingApi extends BladeApi {
     on(event: string, callback: (ev: any) => void): void
   }
 
@@ -25,7 +25,7 @@ declare module 'tweakpane' {
   }
 
   export interface FolderApi extends BladeApi {
-    addBinding<T extends object, P extends keyof T>(obj: T, prop: P, config?: any): BindingApi
+    addInput<T extends object, P extends keyof T>(obj: T, prop: P, config?: any): InputBindingApi
     addButton(config: any): ButtonApi
     addFolder(config: any): FolderApi
   }

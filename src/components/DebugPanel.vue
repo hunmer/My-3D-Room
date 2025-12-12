@@ -52,11 +52,11 @@ const initTweakpane = () => {
 }
 
 /**
- * 添加数字控制
+ * 添加数字控制（Tweakpane v3 使用 addInput）
  */
 const addNumberControl = (config: any) => {
   if (!pane.value) return null
-  return pane.value.addBinding(config, 'value', config)
+  return pane.value.addInput(config, 'value', config)
 }
 
 /**
@@ -64,7 +64,7 @@ const addNumberControl = (config: any) => {
  */
 const addColorControl = (config: any) => {
   if (!pane.value) return null
-  return pane.value.addBinding(config, 'value', { ...config, view: 'color' })
+  return pane.value.addInput(config, 'value', { ...config, view: 'color' })
 }
 
 /**
@@ -72,7 +72,7 @@ const addColorControl = (config: any) => {
  */
 const addBooleanControl = (config: any) => {
   if (!pane.value) return null
-  return pane.value.addBinding(config, 'value', config)
+  return pane.value.addInput(config, 'value', config)
 }
 
 /**
